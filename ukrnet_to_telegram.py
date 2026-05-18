@@ -94,10 +94,8 @@ def fetch_news():
     return news_items
 
 def send_to_telegram(title, url, news_time):
-    if news_time:
-        message = f"🕐 {news_time}\n\n📰 {title}\n\n🔗 {url}"
-    else:
-        message = f"📰 {title}\n\n🔗 {url}"
+        message = f"📰 {title}\n\n#Україна #новини"
+
 
     api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHANNEL_ID, "text": message, "disable_web_page_preview": False}
