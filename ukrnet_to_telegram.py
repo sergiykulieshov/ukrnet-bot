@@ -93,7 +93,7 @@ def fetch_news():
     log.info(f"Знайдено {len(news_items)} новин")
     return news_items
 
-def send_to_telegram(title, url, news_time):
+    def send_to_telegram(title, url, news_time):
         message = f"📰 {title}\n\n#Україна #новини"
 
 
