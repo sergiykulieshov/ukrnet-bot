@@ -93,9 +93,8 @@ def fetch_news():
     log.info(f"Знайдено {len(news_items)} новин")
     return news_items
 
-    def send_to_telegram(title, url, news_time):
-        message = f"📰 {title}\n\n#Україна #новини"
-
+def send_to_telegram(title, url, news_time):
+    message = f"📰 {title}\n\n#Україна #новини"
 
     api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHANNEL_ID, "text": message, "disable_web_page_preview": False}
@@ -124,7 +123,7 @@ def main():
     print(f"Перевірка кожні: {CHECK_INTERVAL // 60} хвилин")
 
     if not BOT_TOKEN:
-        log.error("BOT_TOKEN не знайдено! Додай його у Variables на Railway.")
+        log.error("BOT_TOKEN не знайдено!")
         return
 
     published = load_published()
