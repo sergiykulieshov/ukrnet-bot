@@ -11,7 +11,7 @@ CHANNEL_ID = "@briefingukraine"
 CHECK_INTERVAL = 300
 NEWS_URL = "https://www.ukr.net/news/main.html"
 PUBLISHED_FILE = "published_news.json"
-MAX_STORED_IDS = 500
+MAX_STORED_IDS = 1000
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,6 +47,9 @@ def save_published(published):
     except Exception as e:
         log.error(f"Не вдалося зберегти файл: {e}")
 
+def normalize_title(title):
+    return title.strip().lower()
+
 def fetch_news():
     try:
         response = requests.get(NEWS_URL, headers=HEADERS, timeout=15)
@@ -59,6 +62,7 @@ def fetch_news():
     soup = BeautifulSoup(response.text, "html.parser")
     news_items = []
     seen_urls = set()
+    seen_titles = set()
 
     for a_tag in soup.find_all("a", href=True):
         href = a_tag.get("href", "")
@@ -75,29 +79,29 @@ def fetch_news():
 
         if url in seen_urls:
             continue
+
+        norm_title = normalize_title(text)
+        if norm_title in seen_titles:
+            continue
+
         seen_urls.add(url)
+        seen_titles.add(norm_title)
 
-        time_text = ""
-        parent = a_tag.parent
-        for _ in range(4):
-            if parent is None:
-                break
-            time_tag = parent.find(["span", "div", "time"], string=lambda s: s and ":" in s and len(s) <= 10)
-            if time_tag:
-                time_text = time_tag.get_text(strip=True)
-                break
-            parent = parent.parent
-
-        news_items.append({"title": text, "url": url, "time": time_text})
+        news_items.append({"title": text, "url": url})
 
     log.info(f"Знайдено {len(news_items)} новин")
     return news_items
 
-def send_to_telegram(title, url, news_time):
-    message = f"📰 {title}\n\n#Україна #новини"
+def send_to_telegram(title, url):
+    message = f"{title}\n\n<a href=\"{url}\">читати детальніше</a>\n\n#Україна #новини"
 
     api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHANNEL_ID, "text": message, "disable_web_page_preview": False}
+    payload = {
+        "chat_id": CHANNEL_ID,
+        "text": message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
 
     try:
         response = requests.post(api_url, json=payload, timeout=10)
@@ -127,6 +131,7 @@ def main():
         return
 
     published = load_published()
+    published_titles = set()
     log.info(f"Завантажено {len(published)} вже опублікованих новин")
 
     if len(published) == 0:
@@ -134,6 +139,7 @@ def main():
         news = fetch_news()
         for item in news:
             published.add(item["url"])
+            published_titles.add(normalize_title(item["title"]))
         save_published(published)
         log.info(f"Збережено {len(news)} новин. Нові публікуватимуться автоматично.")
         time.sleep(CHECK_INTERVAL)
@@ -144,11 +150,17 @@ def main():
         new_count = 0
 
         for item in news:
-            if item["url"] not in published:
-                if send_to_telegram(item["title"], item["url"], item["time"]):
-                    published.add(item["url"])
-                    new_count += 1
-                    time.sleep(3)
+            url = item["url"]
+            norm_title = normalize_title(item["title"])
+
+            if url in published or norm_title in published_titles:
+                continue
+
+            if send_to_telegram(item["title"], url):
+                published.add(url)
+                published_titles.add(norm_title)
+                new_count += 1
+                time.sleep(3)
 
         save_published(published)
         log.info(f"Опубліковано {new_count} нових новин" if new_count else "Нових новин немає")
